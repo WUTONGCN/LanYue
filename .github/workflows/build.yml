@@ -10,12 +10,29 @@ permissions:
   contents: read
 
 concurrency:
-  group: portable-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+  group: portable-release
+  cancel-in-progress: false
 
 jobs:
+  version:
+    name: Select release version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Select version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci-version.cjs --resolve
+
   build:
     name: Build ${{ matrix.target }}
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +47,7 @@ jobs:
     timeout-minutes: 90
     env:
       LANYUE_TARGET: ${{ matrix.target }}
+      LANYUE_BUILD_VERSION: ${{ needs.version.outputs.version }}
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -82,9 +100,8 @@ jobs:
           retention-days: 14
 
   release:
-    name: Prepare release draft
-    if: github.ref_type == 'tag'
-    needs: build
+    name: Publish release
+    needs: [version, build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -92,7 +109,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_TAG: v${{ needs.version.outputs.version }}
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
       RELEASE_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -100,18 +118,23 @@ jobs:
           pattern: LanYue-*
           merge-multiple: true
           path: release-assets
-      - name: Create or refresh release draft
+      - name: Publish complete portable packages
         shell: bash
         run: |
           set -euo pipefail
           cd release-assets
+          test -s "LanYue-${RELEASE_VERSION}-mac-arm64.zip"
+          test -s "LanYue-${RELEASE_VERSION}-win-x64.zip"
           cat ./*.zip.sha256 > SHA256SUMS.txt
-          if gh release view "$RELEASE_TAG" --json isDraft > release.json 2>/dev/null; then
-            if ! jq -e '.isDraft == true' release.json >/dev/null; then
-              echo 'This version is already published; create a new version instead of replacing its files.' >&2
-              exit 1
+          sha256sum --check SHA256SUMS.txt
+          if gh release view "$RELEASE_TAG" --json isDraft,targetCommitish > release.json 2>/dev/null; then
+            jq -e --arg commit "$RELEASE_COMMIT" '.targetCommitish == $commit' release.json >/dev/null
+            if jq -e '.isDraft == false' release.json >/dev/null; then
+              echo "Release $RELEASE_TAG is already published."
+              exit 0
             fi
           else
-            gh release create "$RELEASE_TAG" --verify-tag --target "$RELEASE_COMMIT" --draft --title "LanYue $RELEASE_TAG" --generate-notes
+            gh release create "$RELEASE_TAG" --target "$RELEASE_COMMIT" --draft --title "LanYue $RELEASE_TAG" --notes '下载对应系统的 ZIP，完整解压后打开 LanYue。mac-arm64 适用于 Apple 芯片 Mac，win-x64 适用于 Windows x64。'
           fi
           gh release upload "$RELEASE_TAG" ./*.zip SHA256SUMS.txt --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest
