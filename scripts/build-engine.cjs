@@ -64,6 +64,14 @@ for (const template of ['txt','code','json','xml','markdown']) {
 }
 write('server/src/main/resources/static/desktop-minimal.js', fs.readFileSync(path.join(root,'engine-overlay/desktop-minimal.js')));
 const minimalScript = '<script src="/desktop-minimal.js"></script>';
+// Upstream reports every OfficeException as an invalid document version, even
+// when LibreOffice itself has a broken runtime/configuration. Preserve password
+// handling but report conversion failure without blaming the original file.
+const officePreviewFile = 'server/src/main/java/cn/keking/service/impl/OfficeFilePreviewImpl.java';
+write(officePreviewFile, original(officePreviewFile).replace(
+  '抱歉，该文件版本不兼容，文件版本错误。',
+  '文档转换未完成。请完全退出览阅后重新打开再试；若仍失败，请查看日志。此提示不代表原文件损坏。'
+));
 write('server/src/main/resources/web/commonHeader.ftl', original('server/src/main/resources/web/commonHeader.ftl') + '\n' + minimalScript);
 for (const page of ['website/index.html','pdfjs/web/viewer.html','ofd/index.html']) {
   const file = 'server/src/main/resources/static/' + page;

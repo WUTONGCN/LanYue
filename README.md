@@ -59,6 +59,8 @@ Mac Intel 构建使用 `LANYUE_TARGET=mac-x64` 和匹配的三个运行时组件
 
 源代码不包含约数 GB 的第三方二进制，运行时在 `runtime/<平台>-<架构>`；生产包内置它们，不在线下载、不要求 Docker。引擎固定到 `cd127fd8559970a28cd4d513f68e41b1bfdc966a`；所有桌面适配位于 `engine-overlay/` 和 `scripts/build-engine.cjs`。
 
+每次打包写入独立的 `dist/builds/<版本>-<平台>-<随机标识>/` 目录，不覆盖正在运行的应用。最新成功构建的位置记录在 `dist/latest-<平台>.json`；发布 ZIP 仍保存在 `dist/`。不要在应用运行期间手动覆盖其目录，替换便携版前应从菜单完全退出。
+
 ## 自动构建与发布
 
 [GitHub Actions 构建记录](https://github.com/WUTONGCN/LanYue/actions/workflows/build.yml) · [版本下载](https://github.com/WUTONGCN/LanYue/releases)
