@@ -1,0 +1,14 @@
+LanYue (览阅)
+Copyright 2026 WUTONGCN and LanYue contributors.
+Project source: https://github.com/WUTONGCN/LanYue
+
+LanYue desktop source is licensed under the Apache License, Version 2.0.
+This project adapts kkFileView, Copyright its respective contributors,
+licensed under the Apache License, Version 2.0.
+Upstream: https://github.com/kekingcn/kkFileView
+Pinned revision: cd127fd8559970a28cd4d513f68e41b1bfdc966a
+Desktop modifications: engine-overlay/ and scripts/build-engine.cjs.
+
+Third-party software retains its own licenses. In particular, proprietary
+conversion libraries are not relicensed under LanYue's Apache-2.0 license.
+See THIRD_PARTY_NOTICES.md and licenses/ for attribution and limitations.

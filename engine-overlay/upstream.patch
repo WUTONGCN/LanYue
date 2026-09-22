@@ -1,0 +1,408 @@
+diff --git a/server/pom.xml b/server/pom.xml
+index 0baafae..d490a32 100644
+--- a/server/pom.xml
++++ b/server/pom.xml
+@@ -39,6 +39,9 @@
+ </repositories>
+ 
+     <dependencies>
++        <dependency><groupId>org.bytedeco</groupId><artifactId>opencv</artifactId><version>${opencv.version}</version><classifier>windows-x86_64</classifier></dependency>
++        <dependency><groupId>org.bytedeco</groupId><artifactId>openblas</artifactId><version>${openblas.version}</version><classifier>windows-x86_64</classifier></dependency>
++        <dependency><groupId>org.bytedeco</groupId><artifactId>ffmpeg</artifactId><version>${ffmpeg.version}</version><classifier>windows-x86_64</classifier></dependency>
+         <!-- ========== Spring Boot 框架依赖 ========== -->
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+@@ -192,42 +195,6 @@
+             <artifactId>javacpp</artifactId>
+             <version>${bytedeco.version}</version>
+         </dependency>
+-        <dependency>
+-            <groupId>org.bytedeco</groupId>
+-            <artifactId>opencv</artifactId>
+-            <version>${opencv.version}</version>
+-            <classifier>linux-x86_64</classifier>
+-        </dependency>
+-        <dependency>
+-            <groupId>org.bytedeco</groupId>
+-            <artifactId>opencv</artifactId>
+-            <version>${opencv.version}</version>
+-            <classifier>windows-x86_64</classifier>
+-        </dependency>
+-        <dependency>
+-            <groupId>org.bytedeco</groupId>
+-            <artifactId>openblas</artifactId>
+-            <version>${openblas.version}</version>
+-            <classifier>linux-x86_64</classifier>
+-        </dependency>
+-        <dependency>
+-            <groupId>org.bytedeco</groupId>
+-            <artifactId>openblas</artifactId>
+-            <version>${openblas.version}</version>
+-            <classifier>windows-x86_64</classifier>
+-        </dependency>
+-        <dependency>
+-            <groupId>org.bytedeco</groupId>
+-            <artifactId>ffmpeg</artifactId>
+-            <version>${ffmpeg.version}</version>
+-            <classifier>linux-x86_64</classifier>
+-        </dependency>
+-        <dependency>
+-            <groupId>org.bytedeco</groupId>
+-            <artifactId>ffmpeg</artifactId>
+-            <version>${ffmpeg.version}</version>
+-            <classifier>windows-x86_64</classifier>
+-        </dependency>
+ 
+         <!-- ========== 网络通信 ========== -->
+         <dependency>
+@@ -318,7 +285,7 @@
+                 <includes>
+                     <include>**/*</include>
+                 </includes>
+-                <filtering>false</filtering>
++                <filtering>false</filtering><excludes><exclude>**/*.map</exclude></excludes>
+             </resource>
+             <resource>
+                 <directory>src/main/config</directory>
+diff --git a/server/src/main/java/cn/keking/service/CompressFileReader.java b/server/src/main/java/cn/keking/service/CompressFileReader.java
+index b3e15f9..d96ded3 100644
+--- a/server/src/main/java/cn/keking/service/CompressFileReader.java
++++ b/server/src/main/java/cn/keking/service/CompressFileReader.java
+@@ -42,6 +42,7 @@ public class CompressFileReader {
+     }
+ 
+     public String unRar(String filePath, String filePassword, String fileName, FileAttribute fileAttribute) throws Exception {
++        if (System.getenv("LANYUE_7ZIP") != null) return cn.keking.desktop.DesktopArchive.extract(filePath, filePassword, fileName, fileAttribute, fileHandlerService);
+         List<String> imgUrls = new ArrayList<>();
+         String baseUrl = BaseUrlFilter.getBaseUrl();
+         String packagePath = "_";
+diff --git a/server/src/main/java/cn/keking/service/OfficePluginManager.java b/server/src/main/java/cn/keking/service/OfficePluginManager.java
+index 7e70330..e4e46bf 100644
+--- a/server/src/main/java/cn/keking/service/OfficePluginManager.java
++++ b/server/src/main/java/cn/keking/service/OfficePluginManager.java
+@@ -58,7 +58,7 @@ public class OfficePluginManager {
+         if (officeHome == null) {
+             throw new RuntimeException("找不到office组件，请确认'office.home'配置是否有误");
+         }
+-        boolean killOffice = killProcess();
++        boolean killOffice = false; // Desktop: never terminate another application's Office process.
+         if (killOffice) {
+             logger.warn("检测到有正在运行的office进程，已自动结束该进程");
+         }
+@@ -70,6 +70,9 @@ public class OfficePluginManager {
+             officeManager = LocalOfficeManager.builder()
+                     .officeHome(officeHome)
+                     .portNumbers(ports)
++                    .startFailFast(true)
++                    .existingProcessAction(org.jodconverter.local.office.ExistingProcessAction.FAIL)
++                    .workingDir(new File(System.getProperty("java.io.tmpdir")))
+                     .processTimeout(timeout)
+                     .maxTasksPerProcess(maxTasksPerProcess)
+                     .taskExecutionTimeout(taskexecutiontimeout)
+diff --git a/server/src/main/java/cn/keking/utils/ConfigUtils.java b/server/src/main/java/cn/keking/utils/ConfigUtils.java
+index ee93003..b451303 100644
+--- a/server/src/main/java/cn/keking/utils/ConfigUtils.java
++++ b/server/src/main/java/cn/keking/utils/ConfigUtils.java
+@@ -68,6 +68,7 @@ public class ConfigUtils {
+         }
+ 
+     public static String getCustomizedConfigPath() {
++        if (System.getenv("LANYUE_CONFIG") != null) return System.getenv("LANYUE_CONFIG");
+         String homePath = getHomePath();
+         String separator = java.io.File.separator;
+         return homePath + separator + "config" + separator + "application.properties";
+diff --git a/server/src/main/resources/static/ofd/index.html b/server/src/main/resources/static/ofd/index.html
+index 0dcae32..00441f5 100644
+--- a/server/src/main/resources/static/ofd/index.html
++++ b/server/src/main/resources/static/ofd/index.html
+@@ -15,7 +15,7 @@
+   <script src="js/Typr.U.js"></script>
+    <script src="js/openjpeg.js"></script>
+   <script src="js/cnofd.umd.min.js"></script>
+-</head>
++<script src="/desktop-minimal.js"></script></head>
+ 
+ <body>
+   <noscript>
+diff --git a/server/src/main/resources/static/pdfjs/web/viewer.html b/server/src/main/resources/static/pdfjs/web/viewer.html
+index 6c8d957..6c82ce3 100644
+--- a/server/src/main/resources/static/pdfjs/web/viewer.html
++++ b/server/src/main/resources/static/pdfjs/web/viewer.html
+@@ -35,7 +35,7 @@ See https://github.com/adobe-type-tools/cmap-resources
+     <link rel="stylesheet" href="viewer.css" />
+ 
+   <script src="viewer.mjs" type="module"></script>
+-  </head>
++  <script src="/desktop-minimal.js"></script></head>
+ 
+   <body tabindex="0">
+     <div id="outerContainer">
+diff --git a/server/src/main/resources/static/website/index.html b/server/src/main/resources/static/website/index.html
+index 01604a2..cdbd9f2 100644
+--- a/server/src/main/resources/static/website/index.html
++++ b/server/src/main/resources/static/website/index.html
+@@ -33,7 +33,7 @@
+         OV.StartWebsite ();
+     </script>
+ 
+-</head>
++<script src="/desktop-minimal.js"></script></head>
+ 
+ <body>
+     <input type="file" id="open_file" style="display:none;" multiple></input>
+diff --git a/server/src/main/resources/web/code.ftl b/server/src/main/resources/web/code.ftl
+index a6912e8..99bed6a 100644
+--- a/server/src/main/resources/web/code.ftl
++++ b/server/src/main/resources/web/code.ftl
+@@ -3,7 +3,7 @@
+ <head>
+     <meta charset="utf-8"/>
+     <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1.0">
+-    <title>${file.name}代码预览</title>
++    <title>${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}代码预览</title>
+     <#include  "*/commonHeader.ftl">
+     <script src="js/jquery-3.6.1.min.js" type="text/javascript"></script>
+     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
+@@ -43,7 +43,7 @@
+             <h4 class="panel-title"> 
+                 <strong><font color="red"><input class="GLOkBtn" type="button" value="在沙箱中运行html" onclick="loadXmlData();" /></font></strong>
+                 <a data-toggle="collapse" data-parent="#accordion" onclick="loadText();">
+-                    ${file.name}   
++                    ${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}   
+                 </a>
+             </h4> 
+         </div>
+@@ -109,7 +109,7 @@
+         <div class="panel-heading">
+             <h4 class="panel-title">
+                 <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne">
+-                    ${file.name}
++                    ${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}
+                 </a>
+             </h4>
+         </div>
+diff --git a/server/src/main/resources/web/commonHeader.ftl b/server/src/main/resources/web/commonHeader.ftl
+index 473aa28..9e6f3f4 100644
+--- a/server/src/main/resources/web/commonHeader.ftl
++++ b/server/src/main/resources/web/commonHeader.ftl
+@@ -56,3 +56,5 @@
+         width: 100%;
+     }
+ </style>
++
++<script src="/desktop-minimal.js"></script>
+\ No newline at end of file
+diff --git a/server/src/main/resources/web/compress.ftl b/server/src/main/resources/web/compress.ftl
+index d40aef7..2dad770 100644
+--- a/server/src/main/resources/web/compress.ftl
++++ b/server/src/main/resources/web/compress.ftl
+@@ -930,6 +930,7 @@
+ 
+     function initTree(res) {
+         treeNodes = normalizeTreeNodes(res || []);
++        treeNodes.forEach(function (node) { if (/^[a-f0-9]{10}-[0-9]+-/.test(node.name)) node.name = node.name.replace(/^[a-f0-9]{10}-[0-9]+-/, '').replace(/_$/, ''); });
+         if (!treeNodes.length) {
+             showTreeState("empty");
+             setTreeStatus("目录为空", "is-error");
+diff --git a/server/src/main/resources/web/fileNotSupported.ftl b/server/src/main/resources/web/fileNotSupported.ftl
+index 78a3d5e..a8aaaeb 100644
+--- a/server/src/main/resources/web/fileNotSupported.ftl
++++ b/server/src/main/resources/web/fileNotSupported.ftl
+@@ -1,44 +1 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-    <meta charset="utf-8"/>
+-    <style type="text/css">
+-        body {
+-            margin: 0 auto;
+-            width: 900px;
+-            background-color: #CCB;
+-        }
+-
+-        .container {
+-            width: 700px;
+-            height: 700px;
+-            margin: 0 auto;
+-        }
+-
+-        img {
+-            width: auto;
+-            height: auto;
+-            max-width: 100%;
+-            max-height: 100%;
+-            padding-bottom: 36px;
+-        }
+-
+-        span {
+-            display: block;
+-            font-size: 20px;
+-            color: blue;
+-        }
+-    </style>
+-</head>
+-
+-<body>
+-<div class="container">
+-    <img src="images/sorry.jpg"/>
+-    <span>
+-        该(${fileType})文件，系统暂不支持在线预览，具体原因如下：
+-        <p style="color: red;">${msg}</p>
+-    </span>
+-    <p>有任何疑问，请加入kk开源社区知识星球咨询：<a href="https://t.zsxq.com/09ZHSXbsQ">https://t.zsxq.com/09ZHSXbsQ</a><br></p>
+-</div>
+-</body>
+-</html>
++<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>暂时无法预览</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f8f9fb;color:#293447;font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.message{max-width:480px;padding:32px;text-align:center}h1{font-size:21px;font-weight:600}p{color:#7b8494;line-height:1.9;font-size:13px}.symbol{margin:auto;border-radius:50%;background:#f6e9df;color:#ae7654;width:45px;height:45px;display:grid;place-items:center;font-size:23px}</style></head><body><div class="message"><div class="symbol">!</div><h1>暂时无法预览此文件</h1><p>${msg?html}</p><p>请检查文件是否完整，或使用顶部的“重新加载”重试。<br>原文件未作修改。</p></div></body></html>
+diff --git a/server/src/main/resources/web/json.ftl b/server/src/main/resources/web/json.ftl
+index 16a64fb..59afb67 100644
+--- a/server/src/main/resources/web/json.ftl
++++ b/server/src/main/resources/web/json.ftl
+@@ -84,14 +84,14 @@
+         <div id="formatted_btn" class="panel-heading">
+             <h4 class="panel-title">
+                 <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne">
+-                    ${file.name}
++                    ${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}
+                 </a>
+             </h4>
+         </div>
+         <div id="raw_btn" class="panel-heading">
+             <h4 class="panel-title">
+                 <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne">
+-                    ${file.name}
++                    ${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}
+                 </a>
+             </h4>
+         </div>
+diff --git a/server/src/main/resources/web/markdown.ftl b/server/src/main/resources/web/markdown.ftl
+index fed6fc8..61af675 100644
+--- a/server/src/main/resources/web/markdown.ftl
++++ b/server/src/main/resources/web/markdown.ftl
+@@ -3,7 +3,7 @@
+ <head>
+     <meta charset="utf-8"/>
+     <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1.0">
+-    <title>${file.name}文本预览</title>
++    <title>${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}文本预览</title>
+     <#include "*/commonHeader.ftl">
+     <script src="js/jquery-3.6.1.min.js" type="text/javascript"></script>
+     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
+@@ -32,7 +32,7 @@
+             <div class="panel-heading">
+                 <h6 class="panel-title">
+                     <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne">
+-                        ${file.name}
++                        ${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}
+                     </a>
+                 </h6>
+             </div>
+diff --git a/server/src/main/resources/web/svg.ftl b/server/src/main/resources/web/svg.ftl
+index 2ba3da7..2c58063 100644
+--- a/server/src/main/resources/web/svg.ftl
++++ b/server/src/main/resources/web/svg.ftl
+@@ -8,6 +8,7 @@
+     <script src="js/jquery-3.6.1.min.js" type="text/javascript"></script>
+     <script src="js/base64.min.js"></script>
+     <style>
++        html,body { margin:0; padding:0; overflow:hidden; }
+         #container {
+             width: 100%;
+             height: 100vh;
+@@ -157,6 +158,21 @@
+                 
+                 if (svgElement) {
+                     // 设置初始属性
++                    // Fit the full CAD drawing, preserving its original coordinate system.
++                    const vb = svgElement.viewBox.baseVal;
++                    const w = vb.width || svgElement.width.baseVal.value || 1000;
++                    const h = vb.height || svgElement.height.baseVal.value || 1000;
++                    if (!vb.width || !vb.height) svgElement.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
++                    svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
++                    const fit = () => {
++                        const scale = Math.min((container.clientWidth - 48) / w, (container.clientHeight - 80) / h);
++                        svgContainer.style.width = Math.max(1, w * scale) + 'px';
++                        svgContainer.style.height = Math.max(1, h * scale) + 'px';
++                        svgContainer.style.transform = '';
++                        resetView();
++                    };
++                    fit();
++                    new ResizeObserver(fit).observe(container);
+                     svgElement.style.transformOrigin = 'center center';
+                     svgElement.style.width = '100%';
+                     svgElement.style.height = '100%';
+@@ -402,7 +418,7 @@
+         // 计算居中位置
+         const containerRect = container.getBoundingClientRect();
+         if (svgElement) {
+-            const svgRect = svgContainer.getBoundingClientRect();
++            const svgRect = { width: svgContainer.offsetWidth, height: svgContainer.offsetHeight };
+             const translateX = (containerRect.width - svgRect.width) / 2;
+             const translateY = (containerRect.height - svgRect.height) / 2;
+             updateTransform(translateX, translateY);
+diff --git a/server/src/main/resources/web/txt.ftl b/server/src/main/resources/web/txt.ftl
+index 097f848..cf86599 100644
+--- a/server/src/main/resources/web/txt.ftl
++++ b/server/src/main/resources/web/txt.ftl
+@@ -3,7 +3,7 @@
+ <head>
+     <meta charset="utf-8"/>
+     <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1.0">
+-    <title>${file.name}普通文本预览</title>
++    <title>${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}普通文本预览</title>
+     <#include "*/commonHeader.ftl">
+     <script src="js/jquery-3.6.1.min.js" type="text/javascript"></script>
+     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
+@@ -21,7 +21,7 @@
+         <div class="panel-heading">
+             <h4 class="panel-title">
+                 <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne">
+-                    ${file.name}
++                    ${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}
+                 </a>
+             </h4>
+         </div>
+diff --git a/server/src/main/resources/web/waiting.ftl b/server/src/main/resources/web/waiting.ftl
+index 5d8b200..0bb52bd 100644
+--- a/server/src/main/resources/web/waiting.ftl
++++ b/server/src/main/resources/web/waiting.ftl
+@@ -5,7 +5,7 @@
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ 
+-  <title>${fileName}文件转换中</title>
++  <title>${fileName?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")}文件转换中</title>
+   <style>
+ :root{--primary:#3498db;--primary-dark:#2980b9;--secondary:#2c3e50;--light:#ecf0f1;--warning:#f39c12;--gray:#95a5a6;--shadow:0 10px 30px rgba(0,0,0,0.1);--radius:12px;--transition:all 0.3s ease;}*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI','Microsoft YaHei',sans-serif;}
+   body{background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px;color:var(--secondary);}.container{max-width:600px;width:100%;background-color:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;padding:40px;text-align:center;animation:fadeIn 0.8s ease-out;}@keyframes fadeIn{from{opacity:0;transform:translateY(20px);}
+@@ -27,7 +27,7 @@
+     <div class="file-info">
+       <h3>正在处理的文件</h3>
+ 
+-      <p class="file-name" id="fileName">${fileName}</p>
++      <p class="file-name" id="fileName">${fileName?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")}</p>
+     </div>
+ 
+     <div class="message" id="message">
+@@ -46,7 +46,7 @@
+       <h4>提示</h4>
+ 
+       <ul>
+-        <li>文件转换时间取决于文件大小和服务器负载</li>
++        <li>文件转换时间取决于文件大小和本机性能</li>
+ 
+         <li>转换完成后，页面将自动跳转到预览页面</li>
+ 
+diff --git a/server/src/main/resources/web/xml.ftl b/server/src/main/resources/web/xml.ftl
+index 457a154..d2a8e3f 100644
+--- a/server/src/main/resources/web/xml.ftl
++++ b/server/src/main/resources/web/xml.ftl
+@@ -81,7 +81,7 @@
+         <div class="panel-heading">
+             <div class="view-switcher">
+                 <h4 class="panel-title" style="display: inline-block;">
+-                    ${file.name}
++                    ${file.name?replace("^[a-f0-9]{10}-[0-9]+-", "", "r")?html}
+                 </h4>
+                 <div class="btn-group" role="group">
+                     <button type="button" id="treeViewBtn" class="btn btn-primary active">

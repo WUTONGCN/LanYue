@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src http://127.0.0.1:*; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>览阅</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="titlebar">
+    <div id="navigation" class="hidden"><button id="previous" aria-label="上一个文件" title="上一个文件">‹</button><button id="next" aria-label="下一个文件" title="下一个文件">›</button></div>
+    <span id="file-name"></span>
+    <button id="more" aria-label="更多操作" title="更多操作">···</button>
+  </header>
+  <main>
+    <section id="empty"><button id="open">打开文件</button><p>或拖入文件</p></section>
+    <section id="preview" class="hidden">
+      <div id="loading" class="message"><span class="spinner" aria-hidden="true"></span><p id="loading-message" role="status">正在打开…</p></div>
+      <div id="error" class="message hidden"><p id="error-message"></p><button id="retry">重试</button></div>
+      <iframe id="viewer" title="文件预览" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads allow-popups" class="hidden"></iframe>
+    </section>
+  </main>
+  <div id="drop-overlay" class="hidden">松开以打开</div>
+  <div id="toast" class="hidden" role="status"></div>
+  <script src="renderer.js"></script>
+</body>
+</html>

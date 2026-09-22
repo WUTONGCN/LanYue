@@ -1,0 +1,10 @@
+const fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process');
+const root=path.resolve(__dirname,'..'),build=path.join(root,'build'),source=path.join(build,'lanyue-icon-v2.png');
+const set=path.join(build,'lanyue-v2.iconset');fs.mkdirSync(set,{recursive:true});
+for(const size of [16,32,128,256,512])for(const scale of [1,2])execFileSync('sips',['-z',String(size*scale),String(size*scale),source,'--out',path.join(set,`icon_${size}x${size}${scale===2?'@2x':''}.png`)],{stdio:'ignore'});
+execFileSync('iconutil',['-c','icns',set,'-o',path.join(build,'lanyue-v2.icns')]);
+const sizes=[16,24,32,48,64,128,256];const images=sizes.map(size=>{const dest=path.join(build,`icon-v2-${size}.png`);execFileSync('sips',['-z',String(size),String(size),source,'--out',dest],{stdio:'ignore'});return fs.readFileSync(dest);});
+const header=Buffer.alloc(6+16*images.length);header.writeUInt16LE(1,2);header.writeUInt16LE(images.length,4);let offset=header.length;
+images.forEach((data,i)=>{const at=6+16*i;header[at]=sizes[i]===256?0:sizes[i];header[at+1]=header[at];header.writeUInt16LE(1,at+4);header.writeUInt16LE(32,at+6);header.writeUInt32LE(data.length,at+8);header.writeUInt32LE(offset,at+12);offset+=data.length;});
+fs.writeFileSync(path.join(build,'lanyue-v2.ico'),Buffer.concat([header,...images]));
+console.log('Created macOS ICNS and Windows multi-resolution ICO.');

@@ -1,0 +1,10 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const root = path.resolve(__dirname,'..');
+const version = require('../package.json').version;
+const app = path.join(root,`dist/mac-${process.arch}/LanYue.app`);
+const zip = path.join(root,`dist/LanYue-${version}-mac-${process.arch}.zip`);
+if(!fs.existsSync(app))throw new Error('Build the app first.');
+execFileSync('ditto',['-c','-k','--sequesterRsrc','--keepParent',app,zip],{stdio:'inherit'});
+console.log(zip, `${(fs.statSync(zip).size/1024/1024).toFixed(1)} MiB`);
