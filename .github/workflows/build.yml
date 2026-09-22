@@ -1,0 +1,117 @@
+name: Build portable apps
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: mac-arm64
+            command: npm run release:mac
+          - runner: windows-2022
+            target: win-x64
+            command: npm run pack:win
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      LANYUE_TARGET: ${{ matrix.target }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check release version
+        id: version
+        run: node scripts/ci-version.cjs
+      - name: Install npm dependencies
+        run: npm ci
+      - name: Fetch pinned preview engine
+        run: |
+          git config --global core.longpaths true
+          node scripts/bootstrap.cjs
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: vendor/kkFileView/**/pom.xml
+      - name: Install Windows C++ compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & C:\msys64\usr\bin\bash.exe -lc 'pacman -Sy --noconfirm --needed mingw-w64-x86_64-gcc'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          'LANYUE_MINGW_CXX=C:\msys64\mingw64\bin\g++.exe' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          'C:\msys64\mingw64\bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build preview engine
+        run: npm run engine:build
+      - name: Download and prepare portable runtime
+        run: node scripts/prepare-ci-runtime.cjs
+      - name: Package application
+        run: ${{ matrix.command }}
+      - name: Generate SHA256 checksum
+        run: node scripts/checksums.cjs
+      - name: Upload portable package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: LanYue-${{ steps.version.outputs.version }}-${{ matrix.target }}-${{ github.run_number }}
+          path: |
+            dist/LanYue-*-${{ matrix.target }}.zip
+            dist/LanYue-*-${{ matrix.target }}.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  release:
+    name: Prepare release draft
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: LanYue-*
+          merge-multiple: true
+          path: release-assets
+      - name: Create or refresh release draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          cat ./*.zip.sha256 > SHA256SUMS.txt
+          if gh release view "$RELEASE_TAG" --json isDraft > release.json 2>/dev/null; then
+            if ! jq -e '.isDraft == true' release.json >/dev/null; then
+              echo 'This version is already published; create a new version instead of replacing its files.' >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --target "$RELEASE_COMMIT" --draft --title "LanYue $RELEASE_TAG" --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" ./*.zip SHA256SUMS.txt --clobber

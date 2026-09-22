@@ -27,7 +27,7 @@ if (target.startsWith('mac')) {
   copy(process.env.LANYUE_JRE,path.join(runtime,'java'));
   copy(process.env.LANYUE_OFFICE,path.join(runtime,'office/LibreOffice'));
   // MSI extraction does not install its shared CRT and fonts. Keep them app-local.
-  const extracted = path.dirname(process.env.LANYUE_OFFICE);
+  const extracted = process.env.LANYUE_OFFICE_EXTRACTED || path.dirname(process.env.LANYUE_OFFICE);
   const crt = path.join(extracted,'System64');
   if (fs.existsSync(crt)) for (const file of fs.readdirSync(crt)) if (file.endsWith('.dll')) copy(path.join(crt,file),path.join(runtime,'office/LibreOffice/program',file));
   const fonts = path.join(extracted,'Fonts');

@@ -59,6 +59,25 @@ Mac Intel 构建使用 `LANYUE_TARGET=mac-x64` 和匹配的三个运行时组件
 
 源代码不包含约数 GB 的第三方二进制，运行时在 `runtime/<平台>-<架构>`；生产包内置它们，不在线下载、不要求 Docker。引擎固定到 `cd127fd8559970a28cd4d513f68e41b1bfdc966a`；所有桌面适配位于 `engine-overlay/` 和 `scripts/build-engine.cjs`。
 
+## 自动构建与发布
+
+[GitHub Actions 构建记录](https://github.com/WUTONGCN/LanYue/actions/workflows/build.yml) · [版本下载](https://github.com/WUTONGCN/LanYue/releases)
+
+推送到 `main` 会自动构建 Apple 芯片 Mac 和 Windows x64 便携 ZIP；在对应 Actions 运行页面底部的 **Artifacts** 下载，保留 14 天。也可以进入 Actions → Build portable apps → Run workflow 手动构建。构建记录和产物名称带运行编号，便于区分同一版本号的开发更新。
+
+发布新版本时，先提交代码，再执行：
+
+```sh
+npm version patch
+git push origin main --follow-tags
+```
+
+例如当前 `0.1.5` 会变成 `0.1.6`，同时更新 `package.json`、锁文件，创建版本提交和 `v0.1.6` 标签。也可使用 `npm version minor` 或 `npm version 1.0.0`。标签必须与源码版本一致；推送标签后，两端构建全部成功才会生成包含 ZIP、SHA256 校验和与更新说明的 **Release 草稿**。在 Releases 检查草稿并点击 Publish release 后，用户即可下载。已发布版本的文件不会被重跑流程覆盖，修正应使用新版本号。
+
+云端采用 Node.js 22、Temurin JDK 21、固定版本 LibreOffice 26.2.6（固定 SHA256），以及现有脚本中的固定 kkFileView 和 7-Zip。Mac 使用 GitHub 的 ARM64 runner，Windows 使用 x64 runner 和 MinGW；无需上传本机运行时或配置额外 Token。仅发布草稿的任务拥有仓库写权限。配置见 [build.yml](.github/workflows/build.yml)，云端运行时准备见 [prepare-ci-runtime.cjs](scripts/prepare-ci-runtime.cjs)。
+
+自动构建完成不代表文件预览、系统集成或全部格式验收通过。此流程不运行桌面交互测试，也不提供发行签名、公证或应用内自动升级；用户下载新 ZIP、退出旧版后替换应用。开发预览版仍保留前述 CAD 评估限制和第三方组件声明。
+
 ## 体积策略
 
 按平台/架构单独打包 JavaCV 原生库，使用 jlink 精简 Java，桌面界面不引入前端框架，资源放入 ASAR，使用压缩 ZIP，Windows 仅移除未使用的 LibreOffice 界面翻译资源。转换库、Office 格式过滤器、字体、词典、三维 WASM 均保留。更激进的组件裁剪必须先做格式与排版回归。
