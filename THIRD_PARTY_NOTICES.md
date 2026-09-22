@@ -8,4 +8,6 @@ CAD conversion uses upstream Aspose.CAD. No commercial redistribution license ha
 
 This notice is a component inventory, not a completed redistribution audit.
 
+The portable updater uses yauzl (MIT) and its pend dependency (MIT) to inspect ZIP entries before extraction. Their original license files are preserved with the packaged Node.js dependencies.
+
 The macOS archive adapter bundles the official 7-Zip 26.03 console build from https://github.com/ip7z/7zip/releases/tag/26.03. Its full notice is preserved at runtime/licenses/7zip-LICENSE.txt, including LGPL, BSD terms and the unRAR restriction. The RAR decompression code may not be used to develop a RAR (WinRAR) compatible archiver. Corresponding upstream source is available in that release. The bundled executable is copied without modification; it includes RAR decoders that may be omitted from third-party builds.

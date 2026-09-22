@@ -1,6 +1,6 @@
 {
   "name": "lanyue-desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "览阅：本地、离线、多格式文件预览",
   "author": "WUTONGCN",
@@ -242,5 +242,8 @@
   },
   "bugs": {
     "url": "https://github.com/WUTONGCN/LanYue/issues"
+  },
+  "dependencies": {
+    "yauzl": "3.4.0"
   }
 }
